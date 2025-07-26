@@ -1,4 +1,6 @@
-# @title 5. Streamlit Application Code (app.py - Use this EXACT code)
+# @title 5. Streamlit Application Code (app.py - UPDATED WITH MORE DIAGNOSTICS)
+# This cell writes your Streamlit app code to a file named 'app.py'.
+# The app will load the .pkl files created in the previous step, including feature names.
 import streamlit as st
 import pandas as pd
 import joblib
@@ -21,13 +23,16 @@ def load_resources():
         scaler = joblib.load('scaler.pkl')
         model = joblib.load('model.pkl')
         
-        return le_gender, le_married, le_dependents, le_education, le_self_employed, le_property_area, imputer, scaler, model
+        # Load the list of feature names used during training
+        model_features = joblib.load('model_features.pkl')
+
+        return le_gender, le_married, le_dependents, le_education, le_self_employed, le_property_area, imputer, scaler, model, model_features
     except FileNotFoundError:
         st.error("Error: Model or preprocessor files not found. Please ensure Cell 3 (Train Model) was run successfully and all .pkl files were created.")
         st.stop() # Stop the app if files are missing
 
 # Assign the loaded resources to their respective variables
-le_gender, le_married, le_dependents, le_education, le_self_employed, le_property_area, imputer, scaler, model = load_resources()
+le_gender, le_married, le_dependents, le_education, le_self_employed, le_property_area, imputer, scaler, model, model_features = load_resources()
 
 # --- 2. Streamlit UI ---
 st.set_page_config(page_title="Loan Approval Prediction", layout="centered")
@@ -74,12 +79,13 @@ if st.button("Predict Loan Status"):
     # Apply transformations in the same order as in training
     try:
         # Categorical features encoding using the LOADED, FITTED specific encoders
-        input_data['Gender'] = le_gender.transform(input_data['Gender'])
-        input_data['Married'] = le_married.transform(input_data['Married'])
-        input_data['Dependents'] = le_dependents.transform(input_data['Dependents'])
-        input_data['Education'] = le_education.transform(input_data['Education'])
-        input_data['Self_Employed'] = le_self_employed.transform(input_data['Self_Employed'])
-        input_data['Property_Area'] = le_property_area.transform(input_data['Property_Area'])
+        # Convert to string to handle potential non-string inputs from Streamlit selectbox
+        input_data['Gender'] = le_gender.transform(input_data['Gender'].astype(str))
+        input_data['Married'] = le_married.transform(input_data['Married'].astype(str))
+        input_data['Dependents'] = le_dependents.transform(input_data['Dependents'].astype(str))
+        input_data['Education'] = le_education.transform(input_data['Education'].astype(str))
+        input_data['Self_Employed'] = le_self_employed.transform(input_data['Self_Employed'].astype(str))
+        input_data['Property_Area'] = le_property_area.transform(input_data['Property_Area'].astype(str))
 
         # Numerical features for imputation and scaling
         numerical_cols = ['ApplicantIncome', 'CoapplicantIncome', 'LoanAmount', 'Loan_Amount_Term', 'Credit_History']
@@ -90,9 +96,21 @@ if st.button("Predict Loan Status"):
         # Scaling
         input_data[numerical_cols] = scaler.transform(input_data[numerical_cols])
 
+        # --- IMPORTANT FIX: Reorder columns to match training features ---
+        # Select and reorder columns of input_data to match model_features (the columns used during training)
+        # This is CRUCIAL for models that expect features in a specific order and with exact names.
+        input_data_processed = input_data[model_features]
+
+        print("\n--- input_data_processed Columns BEFORE model.predict() ---")
+        print(input_data_processed.columns.tolist())
+        print("\n--- input_data_processed Dtypes BEFORE model.predict() ---")
+        print(input_data_processed.dtypes)
+        print("\n--- input_data_processed Head BEFORE model.predict() ---")
+        print(input_data_processed.head())
+
         # Make prediction
-        prediction = model.predict(input_data)
-        prediction_proba = model.predict_proba(input_data)
+        prediction = model.predict(input_data_processed) # Use the reordered DataFrame
+        prediction_proba = model.predict_proba(input_data_processed)
 
         st.subheader("Prediction Result")
         if prediction[0] == 1:
@@ -104,6 +122,6 @@ if st.button("Predict Loan Status"):
         st.info("Disclaimer: This is a demo for educational purposes. Real loan decisions involve complex factors.")
 
     except ValueError as e:
-        st.error(f"Prediction Error: {e}. This usually means an input value was not seen during model training or there's a data type mismatch.")
+        st.error(f"Prediction Error: {e}. This usually means an input value was not seen during model training or there's a data type mismatch, or column mismatch.")
     except Exception as e:
         st.error(f"An unexpected error occurred: {e}")
