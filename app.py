@@ -1,25 +1,18 @@
-
 import streamlit as st
 import joblib
 import numpy as np
 import pandas as pd
 
-# Load model and transformers
-model = joblib.load("loan_model.pkl")
-scaler = joblib.load("scaler.pkl")
-le_gender = joblib.load("le_gender.pkl")
-le_married = joblib.load("le_married.pkl")
-le_dependents = joblib.load("le_dependents.pkl")
-le_education = joblib.load("le_education.pkl")
-le_self_employed = joblib.load("le_self_employed.pkl")
-le_property_area = joblib.load("le_property_area.pkl")
-feature_names = joblib.load("model_features.pkl")
+# Load model, scaler, label encoder, and feature names
+model = joblib.load('loan_model.pkl')
+scaler = joblib.load('scaler.pkl')
+le = joblib.load('label_encoder.pkl')
+feature_names = joblib.load('model_features.pkl')
 
-# App UI
 st.title("🏦 Loan Approval Prediction App")
-st.markdown("Enter applicant details to check loan approval status")
+st.markdown("Enter the applicant details below to check whether the loan is likely to be approved.")
 
-# User Inputs
+# Input fields
 Gender = st.selectbox("Gender", ['Male', 'Female'])
 Married = st.selectbox("Married", ['Yes', 'No'])
 Dependents = st.selectbox("Dependents", ['0', '1', '2', '3+'])
@@ -32,31 +25,31 @@ Loan_Amount_Term = st.selectbox("Loan Amount Term", [360.0, 120.0, 240.0, 180.0]
 Credit_History = st.selectbox("Credit History", [1.0, 0.0])
 Property_Area = st.selectbox("Property Area", ['Urban', 'Rural', 'Semiurban'])
 
-# On Predict
+# Prediction
 if st.button("Predict Loan Status"):
-    # Encode categorical values
+    # Create dictionary of features
     data_dict = {
-        'Gender': le_gender.transform([Gender])[0],
-        'Married': le_married.transform([Married])[0],
-        'Dependents': le_dependents.transform([Dependents])[0],
-        'Education': le_education.transform([Education])[0],
-        'Self_Employed': le_self_employed.transform([Self_Employed])[0],
+        'Gender': le.transform([Gender])[0],
+        'Married': le.transform([Married])[0],
+        'Dependents': le.transform([Dependents])[0],
+        'Education': le.transform([Education])[0],
+        'Self_Employed': le.transform([Self_Employed])[0],
         'ApplicantIncome': ApplicantIncome,
         'CoapplicantIncome': CoapplicantIncome,
         'LoanAmount': LoanAmount,
         'Loan_Amount_Term': Loan_Amount_Term,
         'Credit_History': Credit_History,
-        'Property_Area': le_property_area.transform([Property_Area])[0],
+        'Property_Area': le.transform([Property_Area])[0]
     }
 
-    input_df = pd.DataFrame([data_dict])[feature_names]  # reorder to match training
+    # Create DataFrame in correct column order
+    input_df = pd.DataFrame([data_dict])[feature_names]
 
-    # Scale the input
+    # Scale and predict
     input_scaled = scaler.transform(input_df)
-
-    # Predict
     prediction = model.predict(input_scaled)
 
+    # Output result
     if prediction[0] == 1:
         st.success("✅ Loan Approved!")
     else:
