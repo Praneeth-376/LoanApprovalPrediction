@@ -1,7 +1,4 @@
 # @title 5. Streamlit Application Code (app.py - Use this EXACT code)
-# This cell writes your Streamlit app code to a file named 'app.py'.
-# The app will load the .pkl files created in the previous step.
-
 import streamlit as st
 import pandas as pd
 import joblib
